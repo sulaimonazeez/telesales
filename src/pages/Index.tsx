@@ -1,7 +1,7 @@
-import { useReducer } from 'react';
+import { useReducer, useCallback } from 'react';
 import { AppState, TabKey } from '@/types/order';
-import { initialOrders } from '@/data/initialData';
-import { appReducer } from '@/reducers/appReducer';
+import { appReducer, initialState } from '@/reducers/appReducer';
+import { useTelesales } from '@/hooks/useTelesales';
 import AppHeader from '@/components/AppHeader';
 import StatsStrip from '@/components/StatsStrip';
 import TabBar from '@/components/TabBar';
@@ -11,26 +11,58 @@ import OnTheWayTab from '@/components/tabs/OnTheWayTab';
 import CallBackTab from '@/components/tabs/CallBackTab';
 import DoneTab from '@/components/tabs/DoneTab';
 import NumbersTab from '@/components/tabs/NumbersTab';
-
-const initialState: AppState = {
-  orders: initialOrders,
-  activeTab: 'callNow',
-  activeOrderId: null,
-  activeAction: null,
-  callingOrderId: null,
-  showOutcomes: null,
-  showUpsell: null,
-  showWaPreview: null,
-  waAction: null,
-  showCallbackPicker: null,
-  period: 'd',
-  earnings: 3800,
-  closedCount: 8,
-  totalAssigned: 16,
-};
+import { Toaster } from '@/components/ui/toaster';
 
 const Index = () => {
   const [state, dispatch] = useReducer(appReducer, initialState);
+  
+  const {
+    confirmOrderApi,
+    cancelOrderApi,
+    noAnswerApi,
+    scheduleCallbackApi,
+    assignRiderApi,
+    updateDeliveryStatusApi,
+    markDeliveredApi,
+    rescheduleDeliveryApi,
+    refreshOrders,
+    refreshStats,
+  } = useTelesales(state, dispatch);
+
+  // Wrap dispatch actions with API calls
+  const handleConfirmOrder = useCallback(async (orderId: string, upsellPackage?: string, upsellAmount?: number) => {
+    await confirmOrderApi(orderId, upsellPackage, upsellAmount);
+  }, [confirmOrderApi]);
+
+  const handleCancelOrder = useCallback(async (orderId: string) => {
+    await cancelOrderApi(orderId);
+  }, [cancelOrderApi]);
+
+  const handleNoAnswer = useCallback(async (orderId: string) => {
+    await noAnswerApi(orderId);
+  }, [noAnswerApi]);
+
+  const handleScheduleCallback = useCallback(async (orderId: string, date: string, time: string, reason: string) => {
+    await scheduleCallbackApi(orderId, date, time, reason);
+  }, [scheduleCallbackApi]);
+
+  const handleAssignRider = useCallback(async (orderId: string, riderId: string, riderName: string) => {
+    await assignRiderApi(orderId, riderId, riderName);
+  }, [assignRiderApi]);
+
+  const handleUpdateDeliveryStatus = useCallback(async (orderId: string, status: string) => {
+    if (status === 'delivered') {
+      await markDeliveredApi(orderId);
+    } else if (status === 'rescheduled') {
+      // Handled separately with date/time
+    } else {
+      await updateDeliveryStatusApi(orderId, status);
+    }
+  }, [updateDeliveryStatusApi, markDeliveredApi]);
+
+  const handleRescheduleDelivery = useCallback(async (orderId: string, date: string, time: string) => {
+    await rescheduleDeliveryApi(orderId, date, time);
+  }, [rescheduleDeliveryApi]);
 
   const tabs = [
     { key: 'callNow' as TabKey, label: 'CALL NOW', count: state.orders.callNow.length, urgent: true },
@@ -41,18 +73,58 @@ const Index = () => {
     { key: 'numbers' as TabKey, label: 'NUMBERS' },
   ];
 
-  const rate = state.totalAssigned > 0 ? Math.round((state.closedCount / state.totalAssigned) * 100) : 74;
+  // Create wrapped dispatch that includes API calls
+  const wrappedDispatch = useCallback((action: any) => {
+    switch (action.type) {
+      case 'CONFIRM_ORDER':
+        handleConfirmOrder(action.orderId, action.upsellPackage, action.upsellAmount);
+        break;
+      case 'CANCEL_ORDER':
+        handleCancelOrder(action.orderId);
+        break;
+      case 'NO_ANSWER':
+        handleNoAnswer(action.orderId);
+        break;
+      case 'SCHEDULE_CALLBACK':
+        handleScheduleCallback(action.orderId, action.date, action.time, action.reason);
+        break;
+      case 'ASSIGN_RIDER':
+        handleAssignRider(action.orderId, action.riderId, action.riderName);
+        break;
+      case 'UPDATE_DELIVERY_STATUS':
+        handleUpdateDeliveryStatus(action.orderId, action.status);
+        break;
+      case 'MARK_DELIVERED':
+        handleUpdateDeliveryStatus(action.orderId, 'delivered');
+        break;
+      case 'RESCHEDULE_DELIVERY':
+        handleRescheduleDelivery(action.orderId, action.date, action.time);
+        break;
+      default:
+        dispatch(action);
+    }
+  }, [
+    handleConfirmOrder,
+    handleCancelOrder,
+    handleNoAnswer,
+    handleScheduleCallback,
+    handleAssignRider,
+    handleUpdateDeliveryStatus,
+    handleRescheduleDelivery,
+  ]);
 
   return (
     <div className="max-w-[480px] mx-auto min-h-screen bg-background flex flex-col">
+      <Toaster />
+      
       {/* Fixed header area */}
       <div className="sticky top-0 z-40 bg-background">
-        <AppHeader />
+        <AppHeader agentName={state.agentName} />
         <StatsStrip
           earnings={state.earnings}
           closedCount={state.closedCount}
           target={12}
-          rate={rate}
+          rate={state.statsRate}
         />
         <TabBar
           activeTab={state.activeTab}
@@ -72,17 +144,27 @@ const Index = () => {
             showWaPreview={state.showWaPreview}
             waAction={state.waAction}
             showCallbackPicker={state.showCallbackPicker}
-            dispatch={dispatch}
+            dispatch={wrappedDispatch}
           />
         )}
         {state.activeTab === 'confirmed' && (
-          <ConfirmedTab orders={state.orders.confirmed} dispatch={dispatch} />
+          <ConfirmedTab 
+            orders={state.orders.confirmed} 
+            deliveryAgents={state.deliveryAgents}
+            dispatch={wrappedDispatch} 
+          />
         )}
         {state.activeTab === 'onTheWay' && (
-          <OnTheWayTab orders={state.orders.onTheWay} dispatch={dispatch} />
+          <OnTheWayTab 
+            orders={state.orders.onTheWay} 
+            dispatch={wrappedDispatch} 
+          />
         )}
         {state.activeTab === 'callBack' && (
-          <CallBackTab orders={state.orders.callBack} dispatch={dispatch} />
+          <CallBackTab 
+            orders={state.orders.callBack} 
+            dispatch={wrappedDispatch} 
+          />
         )}
         {state.activeTab === 'done' && (
           <DoneTab orders={state.orders.done} />
@@ -91,7 +173,10 @@ const Index = () => {
           <NumbersTab
             state={state}
             period={state.period}
-            onPeriodChange={(p) => dispatch({ type: 'SET_PERIOD', period: p })}
+            onPeriodChange={(p) => {
+              dispatch({ type: 'SET_PERIOD', period: p });
+              refreshStats();
+            }}
           />
         )}
       </div>

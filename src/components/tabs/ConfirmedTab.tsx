@@ -1,15 +1,15 @@
 import { useState } from 'react';
-import { Order, AppAction } from '@/types/order';
-import { deliveryAgents } from '@/data/initialData';
+import { Order, AppAction, DeliveryAgent } from '@/types/order';
 import CustomerDetail from '@/components/CustomerDetail';
 import StepDots from '@/components/StepDots';
 
 interface ConfirmedTabProps {
   orders: Order[];
+  deliveryAgents: DeliveryAgent[];
   dispatch: React.Dispatch<AppAction>;
 }
 
-const ConfirmedTab = ({ orders, dispatch }: ConfirmedTabProps) => {
+const ConfirmedTab = ({ orders, deliveryAgents, dispatch }: ConfirmedTabProps) => {
   const [selectedRider, setSelectedRider] = useState<Record<string, string>>({});
 
   const handleAssign = (orderId: string) => {
@@ -26,6 +26,13 @@ const ConfirmedTab = ({ orders, dispatch }: ConfirmedTabProps) => {
         Customers confirmed. Assign a rider to each order below.
       </div>
 
+      {orders.length === 0 && (
+        <div className="text-center py-12 text-dim">
+          <div className="text-floor font-bold">No confirmed orders</div>
+          <div className="text-sm">Confirmed orders will appear here</div>
+        </div>
+      )}
+
       {orders.map(order => (
         <div key={order.id} className="bg-card border border-border">
           <div className="p-3 flex justify-between items-start">
@@ -36,10 +43,10 @@ const ConfirmedTab = ({ orders, dispatch }: ConfirmedTabProps) => {
             </div>
             <div className="text-right">
               <div className="font-mono font-bold text-card-amount text-accent">
-                ₦{order.amount.toLocaleString()}
+                {order.amount ? `₦${order.amount.toLocaleString()}` : '—'}
               </div>
               <span className="inline-block mt-1 px-2 py-0.5 text-[12px] font-bold border border-accent text-accent">
-                {order.attempts} attempt{order.attempts !== 1 ? 's' : ''}
+                {order.attempts || 0} attempt{(order.attempts || 0) !== 1 ? 's' : ''}
               </span>
             </div>
           </div>
@@ -49,14 +56,14 @@ const ConfirmedTab = ({ orders, dispatch }: ConfirmedTabProps) => {
           </div>
 
           <div className="mx-3 mb-3 space-y-1">
-            <StepDots label="Commitment" total={3} filled={order.commitmentStep} />
-            <StepDots label="Recovery" total={4} filled={order.recoveryStep} />
-            <StepDots label="Post-Delivery" total={4} filled={order.postDeliveryStep} />
+            <StepDots label="Commitment" total={3} filled={order.commitmentStep || 0} />
+            <StepDots label="Recovery" total={4} filled={order.recoveryStep || 0} />
+            <StepDots label="Post-Delivery" total={4} filled={order.postDeliveryStep || 0} />
           </div>
 
           {/* Rider assignment */}
           <div className="mx-3 mb-3 border border-border p-3 space-y-2">
-            <div className="text-floor font-bold text-foreground">Assign Delivery Agent</div>
+            <div className="text-floor font-bold text-foreground">Choose a Rider</div>
             <select
               value={selectedRider[order.id] || ''}
               onChange={e => setSelectedRider(prev => ({ ...prev, [order.id]: e.target.value }))}
@@ -65,7 +72,7 @@ const ConfirmedTab = ({ orders, dispatch }: ConfirmedTabProps) => {
               <option value="">Select a rider...</option>
               {deliveryAgents.map(da => (
                 <option key={da.id} value={da.id}>
-                  {da.name} — {da.region} — {da.successRate}% — {da.stock} units
+                  {da.name} — {da.region || da.state || '—'} — {da.successRate || da.dsr || 0}% — {da.stock || da.currentStock || 0} units
                 </option>
               ))}
             </select>
