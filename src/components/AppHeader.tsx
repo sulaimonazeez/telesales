@@ -1,4 +1,19 @@
-const AppHeader = () => {
+import { useNavigate } from 'react-router-dom';
+import { LogOut } from 'lucide-react';
+import { logout } from '@/services/logout';
+
+const AppHeader = ({ agentName }: { agentName?: string }) => {
+  const navigate = useNavigate();
+
+  async function handleLogout() {
+    try {
+      await logout();
+    } catch (_) {
+      // session may already be gone — still redirect
+    }
+    navigate('/login', { replace: true });
+  }
+
   return (
     <header className="bg-card border-b border-border2 px-3 py-2.5 flex items-center justify-between">
       <div className="flex items-center gap-2">
@@ -7,9 +22,23 @@ const AppHeader = () => {
         </div>
         <span className="font-bold text-floor text-foreground">VitalVida Telesales</span>
       </div>
-      <div className="text-right">
-        <div className="text-floor font-semibold text-foreground">Emeka Okafor</div>
-        <div className="font-mono text-floor text-accent">74% · this month</div>
+
+      <div className="flex items-center gap-3">
+        <div className="text-right">
+          <div className="text-floor font-semibold text-foreground">
+            {agentName || 'Emeka Okafor'}
+          </div>
+          <div className="font-mono text-floor text-accent">74% · this month</div>
+        </div>
+
+        <button
+          onClick={handleLogout}
+          title="Sign out"
+          className="p-1.5 rounded hover:bg-muted transition-colors"
+          style={{ color: '#aaa' }}
+        >
+          <LogOut size={16} />
+        </button>
       </div>
     </header>
   );
