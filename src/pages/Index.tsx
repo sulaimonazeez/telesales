@@ -22,8 +22,6 @@ const Index = () => {
     noAnswerApi,
     scheduleCallbackApi,
     assignRiderApi,
-    updateDeliveryStatusApi,
-    markDeliveredApi,
     rescheduleDeliveryApi,
     refreshOrders,
     refreshStats,
@@ -50,15 +48,13 @@ const Index = () => {
     await assignRiderApi(orderId, riderId, riderName);
   }, [assignRiderApi]);
 
-  const handleUpdateDeliveryStatus = useCallback(async (orderId: string, status: string) => {
-    if (status === 'delivered') {
-      await markDeliveredApi(orderId);
-    } else if (status === 'rescheduled') {
-      // Handled separately with date/time
-    } else {
-      await updateDeliveryStatusApi(orderId, status);
-    }
-  }, [updateDeliveryStatusApi, markDeliveredApi]);
+  // FIX: Delivery status updates (Assigned, Out for Delivery, Delivered) are DA
+  // portal actions — telesales cannot set these via API (backend blocks them).
+  // OnTheWayTab only updates local reducer state to move the card visually.
+  // The actual status update happens when DA marks delivered in their portal.
+  const handleUpdateDeliveryStatus = useCallback((_orderId: string, _status: string) => {
+    // Local state only — no API call
+  }, []);
 
   const handleRescheduleDelivery = useCallback(async (orderId: string, date: string, time: string) => {
     await rescheduleDeliveryApi(orderId, date, time);

@@ -170,40 +170,13 @@ export function useTelesales(state: AppState, dispatch: React.Dispatch<AppAction
     }
   }, [dispatch, refreshOrders, refreshDeliveryAgents, toast]);
 
-  const updateDeliveryStatusApi = useCallback(async (orderId: string, status: string) => {
-    const statusMap: Record<string, string> = {
-      'assigned': 'Assigned',
-      'out_for_delivery': 'Out for Delivery',
-      'delivered': 'Delivered',
-      'rescheduled': 'Rescheduled',
-      'cancelled': 'Cancelled',
-    };
-    
-    try {
-      const result = await updateOrderStatus(orderId, statusMap[status] || status, '', '');
-      if (result.success) {
-        dispatch({ type: 'UPDATE_DELIVERY_STATUS', orderId, status });
-        toast({ title: 'Success', description: 'Status updated' });
-        await refreshOrders();
-      }
-    } catch {
-      toast({ title: 'Error', description: 'Failed to update status', variant: 'destructive' });
-    }
-  }, [dispatch, refreshOrders, toast]);
+  // FIX: Removed updateDeliveryStatusApi — it was calling updateOrderStatus with
+  // 'Assigned', 'Out for Delivery', 'Delivered' which are now blocked by the backend
+  // whitelist (telesales can only set: Confirmed, Cancelled, Pending, Rescheduled).
+  // Delivery status changes belong to the DA portal only.
 
-  const markDeliveredApi = useCallback(async (orderId: string) => {
-    try {
-      const result = await updateOrderStatus(orderId, 'Delivered', '', '');
-      if (result.success) {
-        dispatch({ type: 'MARK_DELIVERED', orderId });
-        toast({ title: 'Success', description: 'Marked as delivered' });
-        await refreshOrders();
-        await refreshStats();
-      }
-    } catch {
-      toast({ title: 'Error', description: 'Failed to mark delivered', variant: 'destructive' });
-    }
-  }, [dispatch, refreshOrders, refreshStats, toast]);
+  // FIX: Removed markDeliveredApi — 'Delivered' is a DA action, not telesales.
+  // Telesales portal should not be marking orders as delivered.
 
   const rescheduleDeliveryApi = useCallback(async (orderId: string, date: string, time: string) => {
     try {
@@ -247,8 +220,8 @@ export function useTelesales(state: AppState, dispatch: React.Dispatch<AppAction
     noAnswerApi,
     scheduleCallbackApi,
     assignRiderApi,
-    updateDeliveryStatusApi,
-    markDeliveredApi,
     rescheduleDeliveryApi,
+    // NOTE: updateDeliveryStatusApi and markDeliveredApi removed —
+    // delivery status changes are DA portal actions only.
   };
 }

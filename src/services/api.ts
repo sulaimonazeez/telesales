@@ -74,15 +74,20 @@ export async function logout(): Promise<void> {
   window.location.href = '/login';
 }
 
-export async function checkSession(): Promise<boolean> {
+export async function checkSession(): Promise<{ authenticated: boolean; portal?: string; roles?: string[] }> {
+  // FIX: Use VitalVida auth endpoint to verify telesales role
   try {
-    const res = await fetch(`${BASE}/frappe.auth.get_logged_user`, {
+    const res = await fetch(`${BASE}/vitalvida.api.auth.check_session`, {
+      method: 'POST',
       credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'X-Frappe-CSRF-Token': getCsrfToken() },
+      body: JSON.stringify({}),
     });
     const data = await res.json();
-    return !!(data.message && data.message !== 'Guest');
+    const session = data.message ?? data;
+    return session?.authenticated ? session : { authenticated: false };
   } catch {
-    return false;
+    return { authenticated: false };
   }
 }
 
