@@ -8,10 +8,8 @@ const TELE = `${BASE}/vitalvida.api.telesales`;
 
 // ── CSRF token ──────────────────────────────────────────────
 export function getCsrfToken(): string {
-  // Try frappe global first (when embedded in ERPNext desk)
   const w = window as any;
   if (w.frappe?.csrf_token) return w.frappe.csrf_token;
-  // Fall back to cookie
   const match = document.cookie.match(/csrf_token=([^;]+)/);
   return match ? decodeURIComponent(match[1]) : '';
 }
@@ -20,7 +18,7 @@ export function getCsrfToken(): string {
 async function post<T>(endpoint: string, body: Record<string, unknown> = {}): Promise<T> {
   const res = await fetch(endpoint, {
     method: 'POST',
-    credentials: 'include',      // ← sends session cookie on every request
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       'X-Frappe-CSRF-Token': getCsrfToken(),
@@ -58,7 +56,6 @@ export async function login(
     return { success: true, full_name: data.full_name };
   }
 
-  // Frappe returns { message: "Incorrect Login" } for bad creds
   if (data.message === 'Incorrect Login') {
     return { success: false, error: 'Wrong email or password.' };
   }
@@ -75,7 +72,6 @@ export async function logout(): Promise<void> {
 }
 
 export async function checkSession(): Promise<{ authenticated: boolean; portal?: string; roles?: string[] }> {
-  // FIX: Use VitalVida auth endpoint to verify telesales role
   try {
     const res = await fetch(`${BASE}/vitalvida.api.auth.check_session`, {
       method: 'POST',
@@ -93,7 +89,6 @@ export async function checkSession(): Promise<{ authenticated: boolean; portal?:
 
 // ── TELESALES APIs ──────────────────────────────────────────
 
-// API 0 — Get current telesales closer (replaces frappe.client.get_list)
 export interface CloserInfo {
   name: string;
   closer_name: string;
@@ -104,7 +99,6 @@ export async function getMyCloser(): Promise<CloserInfo | null> {
   return post<CloserInfo | null>(`${TELE}.get_my_closer`);
 }
 
-// API 1 — Fetch all orders for this closer
 export interface RawOrder {
   name: string;
   customer_name: string;
@@ -135,22 +129,22 @@ export async function getMyQueue(closer: string): Promise<RawOrder[]> {
   return post<RawOrder[]>(`${TELE}.get_my_queue`, { closer });
 }
 
-// API 2 — Update order status
 export async function updateOrderStatus(
   order: string,
   status: string,
   note = '',
-  reschedule_date = ''
+  reschedule_date = '',
+  cancellation_source: string | null = null
 ): Promise<{ success: boolean; error?: string }> {
   return post(`${TELE}.update_order_status`, {
     order,
     status,
     note,
     reschedule_date,
+    cancellation_source,
   });
 }
 
-// API 3 — Get performance stats
 export interface StatsResult {
   success: boolean;
   assigned: number;
@@ -174,21 +168,38 @@ export async function getMyStats(
   return post<StatsResult>(`${TELE}.get_my_stats`, { closer, period });
 }
 
-// API 4 — Get available delivery agents
+// ── FIX: RawDA now matches the actual API response fields ──────────────────
+// API returns: {success, das: [{id, name, phone, state, dsr, frozen,
+//   total_stock, stock_shampoo, stock_pomade, stock_conditioner}]}
+// getAvailableDAs now extracts the .das array from the envelope correctly.
 export interface RawDA {
+  id: string;
   name: string;
-  agent_name: string;
-  state: string;
-  current_stock: number;
-  dsr: number;
   phone: string;
+  state: string;
+  dsr: number;
+  frozen: boolean;
+  total_stock: number;
+  stock_shampoo: number;
+  stock_pomade: number;
+  stock_conditioner: number;
 }
 
 export async function getAvailableDAs(state = ''): Promise<RawDA[]> {
-  return post<RawDA[]>(`${TELE}.get_available_das`, { state });
+  // API returns { success: true, das: [...] } — unwrap the das array
+  const response = await post<{ success: boolean; das: RawDA[]; error?: string }>(
+    `${TELE}.get_available_das`,
+    { state }
+  );
+
+  if (!response || !Array.isArray(response.das)) {
+    console.warn('getAvailableDAs: unexpected response shape', response);
+    return [];
+  }
+
+  return response.das;
 }
 
-// API 5 — Assign DA to order
 export async function assignDAtoOrder(
   order: string,
   da: string
