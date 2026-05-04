@@ -33,6 +33,16 @@ async function post<T>(endpoint: string, body: Record<string, unknown> = {}): Pr
 
   const data = await res.json();
 
+  // FIX: Frappe 500-level errors may still return HTTP 200 with an
+  // 'exception' key in the body. Surface these as real errors so the
+  // calling code gets a proper catch instead of silently receiving undefined.
+  if (data.exception) {
+    const errMsg = data.exc_type
+      ? `${data.exc_type}: ${data.exception.replace(/\n/g, ' ').slice(0, 200)}`
+      : String(data.exception).slice(0, 200);
+    throw new Error(errMsg);
+  }
+
   // Frappe always wraps response in { message: ... }
   return (data.message ?? data) as T;
 }
@@ -134,14 +144,15 @@ export async function updateOrderStatus(
   status: string,
   note = '',
   reschedule_date = '',
-  cancellation_source: string | null = null
+  cancellation_source = ''   // FIX: was string|null — backend requires a string value when status=Cancelled
 ): Promise<{ success: boolean; error?: string }> {
   return post(`${TELE}.update_order_status`, {
     order,
     status,
     note,
     reschedule_date,
-    cancellation_source,
+    // Only send cancellation_source when it has a value — avoids passing empty string unnecessarily
+    ...(cancellation_source ? { cancellation_source } : {}),
   });
 }
 

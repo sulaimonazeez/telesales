@@ -3,8 +3,7 @@ import { AppState, AppAction, Order } from '@/types/order';
 import { 
   getMyQueue, 
   getMyStats, 
-  getAvailableDAs, 
-  loadCloser,
+  getAvailableDAs,
   getMyCloser,
   updateOrderStatus,
   assignDAtoOrder
@@ -109,34 +108,46 @@ export function useTelesales(state: AppState, dispatch: React.Dispatch<AppAction
       } else {
         throw new Error(result.error || 'Failed to confirm');
       }
-    } catch {
+    } catch (error) {
+      console.error('confirmOrderApi error:', error);
       toast({ title: 'Error', description: 'Failed to confirm order', variant: 'destructive' });
     }
   }, [dispatch, refreshOrders, toast]);
 
   const cancelOrderApi = useCallback(async (orderId: string) => {
     try {
-      const result = await updateOrderStatus(orderId, 'Cancelled', 'Cancelled by telesales', '');
+      // FIX: cancellation_source is required by backend when status='Cancelled'.
+      // Passing null causes a frappe.throw() which returns a 417 error to the frontend.
+      const result = await updateOrderStatus(orderId, 'Cancelled', 'Cancelled by telesales', '', 'Telesales');
       if (result.success) {
         dispatch({ type: 'CANCEL_ORDER', orderId });
         toast({ title: 'Success', description: 'Order cancelled' });
         await refreshOrders();
+      } else {
+        toast({ title: 'Error', description: result.error || 'Failed to cancel', variant: 'destructive' });
       }
-    } catch {
+    } catch (error) {
+      console.error('cancelOrderApi error:', error);
       toast({ title: 'Error', description: 'Failed to cancel order', variant: 'destructive' });
     }
   }, [dispatch, refreshOrders, toast]);
 
   const noAnswerApi = useCallback(async (orderId: string) => {
     try {
-      const result = await updateOrderStatus(orderId, 'Pending', `No answer — ${new Date().toLocaleString()}`, '');
+      // FIX: 'Pending' → 'Pending' is rejected by the state machine (same state).
+      // 'Unreachable' is the correct status for no-answer — it's in VALID_TRANSITIONS
+      // for Pending, Confirmed, Assigned, and Out for Delivery.
+      const result = await updateOrderStatus(orderId, 'Unreachable', `No answer — ${new Date().toLocaleString()}`, '');
       if (result.success) {
         dispatch({ type: 'NO_ANSWER', orderId });
-        toast({ title: 'Success', description: 'No answer recorded' });
+        toast({ title: 'Recorded', description: 'No answer — marked Unreachable' });
         await refreshOrders();
+      } else {
+        toast({ title: 'Error', description: result.error || 'Failed to record', variant: 'destructive' });
       }
-    } catch {
-      toast({ title: 'Error', description: 'Failed to record', variant: 'destructive' });
+    } catch (error) {
+      console.error('noAnswerApi error:', error);
+      toast({ title: 'Error', description: 'Failed to record no answer', variant: 'destructive' });
     }
   }, [dispatch, refreshOrders, toast]);
 
@@ -197,8 +208,12 @@ export function useTelesales(state: AppState, dispatch: React.Dispatch<AppAction
     loadInitialData();
 
     refreshInterval.current = setInterval(() => {
-      refreshOrders();
-      refreshStats();
+      // FIX: Pass currentCloser explicitly so auto-refresh works even if
+      // the closure captured a stale empty value of state.currentCloser
+      if (state.currentCloser) {
+        refreshOrders(state.currentCloser);
+        refreshStats(state.currentCloser);
+      }
     }, 60000);
 
     return () => {
