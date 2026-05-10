@@ -65,7 +65,7 @@ const Index = () => {
     { key: 'confirmed' as TabKey, label: 'CONFIRMED', count: state.orders.confirmed.length },
     { key: 'onTheWay' as TabKey, label: 'ON THE WAY', count: state.orders.onTheWay.length },
     { key: 'callBack' as TabKey, label: 'CALL BACK', count: state.orders.callBack.length, urgent: true },
-    { key: 'done' as TabKey, label: 'DONE', count: state.orders.done.length },
+    { key: 'done' as TabKey, label: 'PAID', count: state.orders.done.length },
     { key: 'numbers' as TabKey, label: 'NUMBERS' },
   ];
 
