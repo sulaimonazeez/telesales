@@ -28,7 +28,7 @@ const AppHeader = ({ agentName }: { agentName?: string }) => {
           <div className="text-floor font-semibold text-foreground">
             {agentName || 'Emeka Okafor'}
           </div>
-          <div className="font-mono text-floor text-accent">80% ·Target This Week</div>
+          <div className="font-mono text-floor text-accent">80% ·Your Target This Week</div>
         </div>
 
         <button
