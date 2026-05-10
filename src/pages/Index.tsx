@@ -119,7 +119,7 @@ const Index = () => {
         <StatsStrip
           earnings={state.earnings}
           closedCount={state.closedCount}
-          target={12}
+          target={0}
           rate={state.statsRate}
         />
         <TabBar
