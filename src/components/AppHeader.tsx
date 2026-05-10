@@ -28,13 +28,13 @@ const AppHeader = ({ agentName }: { agentName?: string }) => {
           <div className="text-floor font-semibold text-foreground">
             {agentName || 'Emeka Okafor'}
           </div>
-          <div className="font-mono text-floor text-accent">74% · this month</div>
+          <div className="font-mono text-floor text-accent">80% ·Target This Week</div>
         </div>
 
         <button
           onClick={handleLogout}
           title="Sign out"
-          className="p-1.5 rounded hover:bg-muted transition-colors"
+          className="p-1.5 rounded hover:bg-muted 3r3x-colors"
           style={{ color: '#aaa' }}
         >
           <LogOut size={16} />

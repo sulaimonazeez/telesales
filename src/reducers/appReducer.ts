@@ -24,7 +24,7 @@ export const initialState: AppState = {
   totalAssigned: 0,
   currentCloser: null,
   agentName: 'Agent',
-  statsRate: 74,
+  statsRate: 0,
   deliveryAgents: [],
   isLoading: false,
   error: null,
